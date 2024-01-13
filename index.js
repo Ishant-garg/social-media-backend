@@ -21,7 +21,7 @@ cloudinary.config({
 
 //middleware
 app.use(cors({
-    origin: process.env.CORS_URL,
+    origin: 'https://social-media-client-puce.vercel.app/',
     credentials: true,
   }));
 app.use(express.json({limit : "10mb"}));
