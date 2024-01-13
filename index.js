@@ -21,9 +21,11 @@ cloudinary.config({
 
 //middleware
 app.use(cors({
-    origin: 'https://social-media-client-puce.vercel.app/',
-    credentials: true,
-  }));
+  origin: 'https://social-media-client-puce.vercel.app',
+  methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
+  credentials: true,
+  optionsSuccessStatus: 204,
+}));
 app.use(express.json({limit : "10mb"}));
 app.use(morgan('tiny'))
 app.use(cookieParser())
