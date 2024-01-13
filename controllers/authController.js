@@ -5,7 +5,7 @@ const bcrypt = require('bcrypt')
 const { error, success } = require('../utils/responseWrapper')
 const signupController = async (req, res)=>{
     try{
-        const {email , password } = req.body
+        const {email , password ,name} = req.body
 
         if(!email || !password){
             return res.send(error(400 , 'All fields are required'))
@@ -23,7 +23,8 @@ const signupController = async (req, res)=>{
 
         const newUser = await User.create({  
             email,
-            password : hashedPassword
+            password : hashedPassword,
+            name
         })
         
         console.log(newUser)
@@ -48,7 +49,7 @@ const loginController = async (req, res)=>{
          const user = await User.findOne({email});
          //if no user exisrt
          if(!user){
-            return res.send(error(401 , 'No user exists with this mail'))
+            return res.send(error(400 , `No user exists with this mail \n  Please signup`))
          }
 
          const matched = await bcrypt.compare(password , user.password);
@@ -73,7 +74,7 @@ const loginController = async (req, res)=>{
 
    
     }
-    catch (e){
+    catch (e){   
         console.log(e)
         return res.send(error(500, e.message));
 
@@ -114,10 +115,22 @@ const generateRefreshToken = (data) =>{
     console.log(token)
     return token
 }
+const logoutController = async (req, res) => {
+    try {
+        res.clearCookie('jwt', {
+            httpOnly: true,
+            secure: true,
+        })
+        return res.send(success(200, 'user logged out'))
+    } catch (e) {
+        return res.send(error(500, e.message));
+    }
+}
 
 module.exports = {
     signupController,
     loginController,
-    refreshTokenController
+    refreshTokenController,
+    logoutController
 }
 

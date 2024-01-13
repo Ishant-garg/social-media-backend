@@ -12,7 +12,8 @@ const userSchema = mongoose.Schema({
     },
     name : {
         type : String,
-   
+        required : true
+         
     },
     avatar : {
         publicId : String,
@@ -32,7 +33,9 @@ const userSchema = mongoose.Schema({
             ref : "user"
         }
     ],
-
+    bio:{
+        type : String,
+    },
     posts : [
         {
             type : mongoose.Schema.Types.ObjectId,

@@ -29,7 +29,5 @@ module.exports = async (req, res, next) => {
         return res.send(error(401, 'invalid access key '))
 
     };
-   
-
-  
+ 
 };

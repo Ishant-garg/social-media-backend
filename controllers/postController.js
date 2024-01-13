@@ -1,6 +1,9 @@
  const post = require("../models/post");
 const User = require("../models/user");
+const { mapPostOutput } = require("../utils/Utils");
 const { success, error } = require("../utils/responseWrapper");
+const cloudinary = require('cloudinary').v2
+ 
 
 const postController = async (req , res) =>{
     console.log('inside post controller '+ req._id)
@@ -9,15 +12,27 @@ const postController = async (req , res) =>{
 const createPostController = async (req , res) =>{
 
     try{
-        const {caption} = req.body;
-    
+        const {caption , img} = req.body;
+        if(!caption || !img){
+            return res.send(error(404 , 'image or caption is not provided '))
+        }
         const owner = req._id
         const user = await User.findById(owner);
 
+        
+        const cloudImg = await cloudinary.uploader.upload(img ,{
+                folder : 'postImg'
+        })
+
+        
         const Userpost = await post.create(
             {
                 owner,
-                caption
+                caption,
+                image : {
+                    url : cloudImg.secure_url,
+                    publicId : cloudImg.public_id
+                }
             }
         )
         
@@ -35,7 +50,7 @@ const createPostController = async (req , res) =>{
 const likeAndUnlikePostController = async (req ,res)=>{
     const {postId} = req.body;
     const currUserId = req._id
-    const UserPost = await post.findById(postId);
+    const UserPost = await post.findById(postId).populate('owner');
     try{
 
         if(!UserPost) {
@@ -45,14 +60,14 @@ const likeAndUnlikePostController = async (req ,res)=>{
             const index =  UserPost.likes.indexOf(currUserId);
                           
             UserPost.likes.splice(index ,1);
-            await UserPost.save();
-            return res.send(success(200 , 'post unliked'))
-        }
+         }
         else{
             UserPost.likes.push(currUserId);
-            await UserPost.save();
-            return res.send(success(200 , 'post liked'))
+ 
         }
+        await UserPost.save();
+        return res.send(success(200 , {UserPost : mapPostOutput(UserPost , currUserId)}))
+
     }
     catch(e){
         return res.send(error(500 , e.message))
@@ -67,7 +82,7 @@ const followController = async (req ,res)=>{
     const currUser = await User.findById(currUserId)
     try{
         if(!userIdTofollow){
-            return req.send(error(500 , 'user not exist with this id'))
+            return res.send(error(500 , 'user not exist with this id'))
         }
 
         //already follow so we unfollow
@@ -75,42 +90,46 @@ const followController = async (req ,res)=>{
             const followingIndex = await currUser.following.indexOf(userIdTofollow)
             currUser.following.splice(followingIndex , 1);
 
-            const followerIndex = await userTofollow.followers.indexOf(currUserId)
+            const followerIndex = await userTofollow?.followers?.indexOf(currUserId)
             userTofollow.followers.splice(followerIndex ,1);
-
-            await currUser.save()
-            await userTofollow.save();
-            return res.send(success(200 , 'user unfollowed success'))
-
-
+ 
         }
         else{
             currUser.following.push(userIdTofollow);
             userTofollow.followers.push(currUserId);
-    
-            await currUser.save()
-            await userTofollow.save();
-            return res.send(success(200 , 'user followed success'))
         }
+        
+        await currUser.save()
+        await userTofollow.save();
+        return res.send(success(200 , {user : userTofollow}))
         
     }
     catch(e){
         return res.send(error(500 , e.message))
     }
 }
-const getAllPostController = async (req,res) => {
+const feedDataController = async (req,res) => {
 
     try{
         const userId = req._id; 
-        const currUser = await User.findById(userId)
-
-        const Posts = await post.find({
+        const currUser = await User.findById(userId).populate('following')
+ 
+        const fullpost = await post.find({
             'owner' : {
                 '$in' : currUser.following
             }
-         })  
-
-        res.send(success(200 , Posts))
+         }).populate('owner')
+        
+         const followingsId = currUser?.following?.map(item => item._id )
+         console.log(  followingsId)
+         const suggestions  = await User.find({
+            '_id':{
+                $nin: [...followingsId, userId]
+            }
+         }) 
+         const posts = fullpost.map(item => mapPostOutput(item, req._id)).reverse();
+     
+        res.send(success(200 ,  {...currUser._doc , suggestions , posts}))
     }
     catch(e){
         return res.send(error(500 , e.message))
@@ -143,53 +162,60 @@ const updatePostController  = async(req ,res) =>{
     }
 }
 
-const deleteUserController = async (req ,res) =>{
-    try{
-   
+const deleteUserController = async (req, res) => {
+    try {
         const curuserId = req._id;
-        const curUser = await User.findById(curuserId)
-        //delete all the post created by the user to delete
-        await post.deleteMany({
-            owner : curuserId
-        })
-        
-        
-        //delete user from followings of followers
-        curUser.followers.forEach(async (followerId) =>{
-            const followerUser = await  User.findById(followerId);
-            const index =   followerUser?.following?.indexOf(curuserId);
-            followerUser?.splice(index ,1);
-            await followerUser?.save()
-        })
+        const curUser = await User.findById(curuserId);
 
-        curUser.following.forEach(async (followingId) =>{
+        // Delete all the posts created by the user
+        await post.deleteMany({ owner: curuserId });
+
+        // Delete user from followings of followers
+        const followerPromises = curUser.followers.map(async (followerId) => {
+            const followerUser = await User.findById(followerId);
+            const index = followerUser?.following.indexOf(curuserId);
+            if (index !== -1) {
+                followerUser.following.splice(index, 1);
+                await followerUser.save();
+            }
+        });
+
+        const followingPromises = curUser.following.map(async (followingId) => {
             const followingUser = await User.findById(followingId);
-            const index =   followingUser?.followers?.indexOf(curuserId);
-            followingUser?.splice(index ,1);
-            await followingUser?.save()   
-        })
+            const index = followingUser?.followers.indexOf(curuserId);
+            if (index !== -1) {
+                followingUser.followers.splice(index, 1);
+                await followingUser.save();
+            }
+        });
 
-        //deleting all the likes done by this user 
+        // Deleting all the likes done by this user
         const allPosts = await post.find();
-        allPosts.forEach(async (posts) =>{
-            const index = posts.likes.indexOf(curuserId)
-            posts.likes.splice(index ,1);
-            await posts.save()
-        })
+        const likePromises = allPosts.map(async (posts) => {
+            const index = posts.likes.indexOf(curuserId);
+            if (index !== -1) {
+                posts.likes.splice(index, 1);
+                await posts.save();
+            }
+        });
 
+        // Wait for all promises to complete
+        await Promise.all([...followerPromises, ...followingPromises, ...likePromises]);
+
+        // Delete the user
         await User.findOneAndDelete({ _id: curuserId });
-        
-        res.clearCookie('jwt' ,{
-            httpOnly : true,
-            secure : true
-        })
-        return res.send(200 , 'user delete sucessfully') 
-    }
-    catch(e){
-        return res.send(error(500, e.message))
 
+        res.clearCookie('jwt', {
+            httpOnly: true,
+            secure: true,
+        });
+
+        return res.status(200).send('User deleted successfully');
+    } catch (e) {
+        console.error('Error deleting user:', e);
+        return res.status(500).json({ error: 'Internal Server Error' });
     }
-}
+};
 
 const deletePostController = async(req ,res) =>{
     try{
@@ -243,6 +269,7 @@ const getMyPostController = async (req ,res) =>{
 }
 const getUserPostController = async (req ,res) =>{
     try{
+
         const {userId} = req.body;
 
         if(!userId) {
@@ -260,15 +287,86 @@ const getUserPostController = async (req ,res) =>{
     }
 
 }
+const getMyProfile = async(req ,res) =>{
+    try{
+        const userId = req._id;
+
+        const user = await User.findById(userId);
+        return res.send(success(200 , {user}))
+    }
+    catch(e){
+        return res.send(error(500 , e.message))
+
+    }
+    
+
+}
+
+const updateUserProfile = async(req ,res ) =>{
+    try{
+        const {name , bio , img} = req.body;
+        const user =  await User.findById(req._id)
+        if(name){
+            user.name = name;
+        }
+
+        if(bio){
+            user.bio = bio;
+        }
+        if(img){
+            const cloudImg = await cloudinary.uploader.upload(img ,{
+                folder : 'profileImg'
+            })
+
+            user.avatar = {
+                url : cloudImg.secure_url,
+                publicId : cloudImg.public_id
+                
+            }
+
+        }
+        await user.save();
+        res.send(success(200 , {user}))
+        
+    }
+    catch(e){
+        res.send(error(500 , e.message))
+    }
+}
+
+const getUserProfile = async (req, res) => {
+    try {
+        const { userId } = req.body;
+
+        const user = await User.findById(userId).populate({
+            path: 'posts',
+            populate: {
+                path: 'owner'
+            }
+        });
+
+        const fullpost = user.posts;
+        const posts = fullpost.map(item => mapPostOutput(item, req._id)).reverse();
+
+        return res.send(success(200, { ...user._doc, posts }));
+    } catch (e) {
+        return res.send(error(500, e.message));
+    }
+};
+
 module.exports = {
     postController,
     createPostController,
     likeAndUnlikePostController,
     followController,
-    getAllPostController,
+    feedDataController,
     updatePostController,
     deleteUserController,
     deletePostController,
     getMyPostController,
-    getUserPostController
+    getUserPostController,
+    getMyProfile,
+
+    updateUserProfile,
+    getUserProfile
 }

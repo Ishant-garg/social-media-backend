@@ -11,22 +11,30 @@ const dbconnect = require("./dbconnect");
 const cookieParser = require('cookie-parser')
 
 const morgan = require("morgan");
+const cloudinary = require('cloudinary').v2;
+          
+cloudinary.config({ 
+  cloud_name: process.env.CLOUDINARY_NAME, 
+  api_key:  process.env.CLOUDINARY_API_KEY, 
+  api_secret:  process.env.CLOUDINARY_API_SECRET 
+});
+
 //middleware
 app.use(cors({
     origin: 'http://localhost:3000',
     credentials: true,
   }));
-app.use(express.json());
+app.use(express.json({limit : "10mb"}));
 app.use(morgan('tiny'))
 app.use(cookieParser())
-const PORT = 4000;
+const PORT = process.env.PORT;
 
-
+   //hello
 
 app.use('/auth' , authRoute);
 app.use('/posts' , postRoute)
 app.use('/user' , userRouter)
-app.get('/api' ,(req ,res) =>{
+app.get('/' ,(req ,res) =>{
     res.send("connect sucessfully");
 })
 
