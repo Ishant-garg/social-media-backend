@@ -21,7 +21,7 @@ cloudinary.config({
 
 //middleware
 app.use(cors({
-    origin: 'http://localhost:3000',
+    origin: process.env.CORS_URL,
     credentials: true,
   }));
 app.use(express.json({limit : "10mb"}));
