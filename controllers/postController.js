@@ -354,6 +354,42 @@ const getUserProfile = async (req, res) => {
     }
 };
 
+const generatePostController = async (req, res) => {
+    const {description} = req.body
+    if(!description){
+        return res.send(error(400 , 'description is required'))
+    }
+    try{
+        const resp = await fetch(
+            `https://api.limewire.com/api/image/generation`,
+            {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'X-Api-Version': 'v1',
+                Accept: 'application/json',
+                Authorization: 'Bearer lmwr_sk_thwlmoaYV3_2SOYc877IBvoORs29MMRNuYQvpOxYjY8DpJgK'
+              },
+              body: JSON.stringify({
+                prompt: description,
+                aspect_ratio: '1:1',
+              })
+            }
+          );
+        
+          const data = await resp.json();
+          if (!data.data || data.data.length === 0) {
+            return res.status(400).json({ detail: 'No image data returned from API', status: 400 });
+        }
+          console.log(data);
+          return res.send(success(200 ,  data.data[0].asset_url));
+    
+    }
+    catch(err){
+        console.log(err)
+    }
+}
+
 module.exports = {
     postController,
     createPostController,
@@ -366,7 +402,7 @@ module.exports = {
     getMyPostController,
     getUserPostController,
     getMyProfile,
-
+    generatePostController,
     updateUserProfile,
     getUserProfile
 }

@@ -3,6 +3,7 @@ const mongourl = "mongodb+srv://ishant_social_media:F1bhLd72SKGfAo8B@cluster1.iq
 
 module.exports = ()=>{
     mongoose.connect(mongourl, {
+
         useNewUrlParser : true,
         useUnifiedTopology : true
     })
