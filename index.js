@@ -20,19 +20,19 @@ cloudinary.config({
 });
 
 //middleware
-// const corsOptions = {
-//   origin: 'http://localhost:3000',
-//   credentials: true, // Allow credentials
-// };
+const corsOptions = {
+  origin: 'https://social-media-client-puce.vercel.app',
+  credentials: true, // Allow credentials
+};
 
 // app.use(cors(corsOptions));
 
-app.use(cors({
-  origin: process.env.CORS_URL,
-  methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
-  credentials: true,
-  optionsSuccessStatus: 204,
-}));
+// app.use(cors({
+//   origin: 'https://social-media-client-puce.vercel.app/',
+//   methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
+//   credentials: true,
+//   optionsSuccessStatus: 204,
+// }));
 // app.use(cors())
 app.use(express.json({limit : "10mb"}));
 app.use(morgan('tiny'))
