@@ -25,7 +25,7 @@ const corsOptions = {
   credentials: true, // Allow credentials
 };
 
-// app.use(cors(corsOptions));
+app.use(cors(corsOptions));
 
 // app.use(cors({
 //   origin: 'https://social-media-client-puce.vercel.app/',
